@@ -14,7 +14,7 @@ RUN chmod +x -R .
 
 
 # ENV variables example :
-# cENV MEDIA_SERVER_HOST="localhost"
+# ENV MEDIA_SERVER_HOST="localhost"
 # ENV MEDIA_SERVER_PORT=8082
 # ENV MEDIA_SERVER_ADMIN_PASS="test"
 # ENV MEDIA_SERVER_DATA_ROUTE_NAME="/data/"
