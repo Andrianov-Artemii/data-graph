@@ -15,12 +15,13 @@ import (
 type MediaAPI struct {
 	Host     string
 	Port     int
+	Prefix   string
 	RootPath string
 	Routes   models.MediaAPIRoutes
 }
 
 func NewMediaAPI(config *models.MediaAPIConfig) (*MediaAPI, error) {
-	api := &MediaAPI{Host: config.Host, Port: config.Port, RootPath: config.StorageRootPath, Routes: config.Routes}
+	api := &MediaAPI{Host: config.Host, Port: config.Port, Prefix: config.Prefix, RootPath: config.StorageRootPath, Routes: config.Routes}
 	users = make(map[string]string)
 	users["admin"] = config.AdminPass
 	return api, nil
@@ -39,20 +40,17 @@ func (api *MediaAPI) authorization(r *http.Request) int {
 	if token == "" {
 		return http.StatusUnauthorized
 	}
-	log.Println(token)
 	var claims models.Claims
 	tokenValidation, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) { return jwtKey, nil })
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
 			return http.StatusUnauthorized
 		}
-		log.Println(err)
 		return http.StatusBadRequest
 	}
 	if !tokenValidation.Valid {
 		return http.StatusUnauthorized
 	}
-	log.Println(claims.Username, " authorized suc!")
 	return http.StatusOK
 }
 
@@ -62,10 +60,10 @@ func (api *MediaAPI) SetCorsHeaders(rw *http.ResponseWriter) {
 }
 
 func (api *MediaAPI) Run() {
-	http.HandleFunc(api.Routes.DataRoute.Name, api.getDataByUrl)
-	http.HandleFunc("/signin", api.signIn)
-	http.HandleFunc("/upload", api.upload)
-	http.HandleFunc("/delete", api.delete)
+	http.HandleFunc(fmt.Sprintf("%s%s", api.Prefix, api.Routes.DataRoute.Name), api.getDataByUrl)
+	http.HandleFunc(fmt.Sprintf("%s%s", api.Prefix, "/signin"), api.signIn)
+	http.HandleFunc(fmt.Sprintf("%s%s", api.Prefix, "/upload"), api.upload)
+	http.HandleFunc(fmt.Sprintf("%s%s", api.Prefix, "/delete"), api.delete)
 	log.Printf("Run server on %s:%d", api.Host, api.Port)
 	http.ListenAndServe(fmt.Sprintf("%s:%d", api.Host, api.Port), nil)
 }
@@ -143,6 +141,6 @@ func (api *MediaAPI) delete(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (api *MediaAPI) getDataByUrl(rw http.ResponseWriter, r *http.Request) {
-	currentPath := r.URL.RequestURI()[len(api.Routes.DataRoute.Name):]
+	currentPath := r.URL.RequestURI()[len(fmt.Sprintf("%s%s", api.Prefix, api.Routes.DataRoute.Name)):]
 	http.ServeFile(rw, r, fmt.Sprintf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, currentPath))
 }

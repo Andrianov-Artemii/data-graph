@@ -11,9 +11,11 @@
 Example of `.yaml` configuration is aviable into `example-config.yaml`.
 
 ### ENV variables
-`MEDIA_SERVER_HOST` : set server host (example: localhost)
+`MEDIA_SERVER_HOST` : set server host (example: `localhost`)
 
-`MEDIA_SERVER_PORT` : set server port (example: 8082)
+`MEDIA_SERVER_PORT` : set server port (example: `8082`)
+
+`MEDIA_SERVER_PREFIX` : set specific prefix for all API handlers (example: `/media-server`)
 
 `MEDIA_SERVER_ADMIN_PASS` : set admin user password (will be released later)
 
