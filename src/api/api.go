@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"media-server/src/models"
 	"net/http"
+	"os"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -62,6 +64,8 @@ func (api *MediaAPI) SetCorsHeaders(rw *http.ResponseWriter) {
 func (api *MediaAPI) Run() {
 	http.HandleFunc(api.Routes.DataRoute.Name, api.getDataByUrl)
 	http.HandleFunc("/signin", api.signIn)
+	http.HandleFunc("/upload", api.upload)
+	http.HandleFunc("/delete", api.delete)
 	log.Printf("Run server on %s:%d", api.Host, api.Port)
 	http.ListenAndServe(fmt.Sprintf("%s:%d", api.Host, api.Port), nil)
 }
@@ -82,6 +86,60 @@ func (api *MediaAPI) signIn(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(rw, fmt.Sprintf("{\"token\": \"%s\"}", token))
+}
+
+func (api *MediaAPI) upload(rw http.ResponseWriter, r *http.Request) {
+	code := api.authorization(r)
+	if code != http.StatusOK {
+		rw.WriteHeader(code)
+		return
+	}
+	if r.Method != http.MethodPost {
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	fileBytes, handler, err := r.FormFile("file")
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if _, err := os.Stat(fmt.Sprintf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, handler.Filename)); err == nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"error\": \"File already exist!\"}")
+		return
+	}
+	defer fileBytes.Close()
+	data, err := ioutil.ReadAll(fileBytes)
+	file, _ := os.Create(fmt.Sprintf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, handler.Filename))
+	file.Write(data)
+	file.Close()
+	log.Printf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, handler.Filename)
+	stats, err := os.Stat(fmt.Sprintf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, handler.Filename))
+	if err != nil {
+		log.Println(err)
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(rw, "{\"name\": %s\"}", stats.Name())
+}
+
+func (api *MediaAPI) delete(rw http.ResponseWriter, r *http.Request) {
+	code := api.authorization(r)
+	if code != http.StatusOK {
+		rw.WriteHeader(code)
+		return
+	}
+	if r.Method != http.MethodGet {
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	fileName := r.URL.Query().Get("name")
+	if _, err := os.Stat(fmt.Sprintf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, fileName)); err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"error\": \"File not found!\"}")
+	}
+	os.Remove(fmt.Sprintf("%s%s%s", api.RootPath, api.Routes.DataRoute.StorageRoute, fileName))
+	return
 }
 
 func (api *MediaAPI) getDataByUrl(rw http.ResponseWriter, r *http.Request) {
